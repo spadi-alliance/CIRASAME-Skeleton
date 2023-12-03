@@ -29,10 +29,10 @@ set_false_path -from [get_pins {u_HoldGen/reg_mask_reg[*]/C}] -to [get_pins {u_H
 create_generated_clock -name clk_sys [get_pins u_ClkMan_Inst/inst/mmcm_adv_inst/CLKOUT0]
 create_generated_clock -name clk_indep [get_pins u_ClkMan_Inst/inst/mmcm_adv_inst/CLKOUT1]
 create_generated_clock -name clk_spi [get_pins u_ClkMan_Inst/inst/mmcm_adv_inst/CLKOUT2]
-create_generated_clock -name clk_icap [get_pins u_ClkMan_Inst/inst/mmcm_adv_inst/CLKOUT3]
-create_generated_clock -name clk_machine [get_pins u_ClkMan_Inst/inst/mmcm_adv_inst/CLKOUT4]
+create_generated_clock -name clk_machine [get_pins u_ClkMan_Inst/inst/mmcm_adv_inst/CLKOUT3]
 
 create_generated_clock -name clk_tdc [get_pins u_ClkTdc_Inst/inst/mmcm_adv_inst/CLKOUT0]
+create_generated_clock -name clk_slow [get_pins u_ClkTdc_Inst/inst/mmcm_adv_inst/CLKOUT1]
 
 create_generated_clock -name clk_gmii1 [get_pins u_GtClockDist_Inst/core_clocking_i/mmcm_adv_inst/CLKOUT0]
 create_generated_clock -name clk_gmii2 [get_pins u_GtClockDist_Inst/core_clocking_i/mmcm_adv_inst/CLKOUT1]
@@ -51,19 +51,11 @@ create_generated_clock -name clk_mig_ui_out0 [get_pins u_MIG/u_mig_7series_0/u_m
 
 #set_multicycle_path -setup -from [get_clocks clk_tdc270] -to [get_clocks clk_tdc0] 2
 
-set_clock_groups -name async_sys_gmii -asynchronous -group {clk_sys clk_tdc} -group {clk_gmii1 clk_gmii2} -group clk_indep -group clk_spi -group clk_icap -group clk_machine -group {clk_mig_ui clk_mig_ui_out0}
+set_clock_groups -name async_sys_gmii -asynchronous -group clk_sys -group {clk_slow clk_tdc} -group {clk_gmii1 clk_gmii2} -group clk_indep -group clk_spi -group clk_machine -group {clk_mig_ui clk_mig_ui_out0}
 #    -group clk_mig
 
 
-#set_clock_groups -name async_sys_indep -asynchronous -group clk_sys
-#set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clk_b2tt_raw]
 
-set_false_path -through [get_ports {LED[1]}]
-set_false_path -through [get_ports {LED[2]}]
-set_false_path -through [get_ports {LED[3]}]
-set_false_path -through [get_ports {LED[4]}]
-
-#set_false_path -through [get_nets u_BCT_Inst/rst_from_bus]
 
 
 

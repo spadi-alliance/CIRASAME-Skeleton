@@ -1,8 +1,8 @@
 library IEEE, mylib;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_MISC.ALL;
-use ieee.std_logic_arith.all;
-use ieee.std_logic_unsigned.all;
+use IEEE.numeric_std.all;
+
 use mylib.defBCT.all;
 use mylib.defMAX.all;
 

@@ -131,10 +131,14 @@ architecture Behavioral of toplevel is
   signal sitcp_reset  : std_logic;
   signal system_reset : std_logic;
   signal user_reset   : std_logic;
+
   signal mii_reset    : std_logic;
-  signal emergency_reset  : std_logic_vector(kNumSfp-1 downto 0);
+  signal emergency_reset  : std_logic_vector(kNumGtx-1 downto 0);
+
   signal bct_reset    : std_logic;
   signal rst_from_bus : std_logic;
+
+  signal delayed_usr_rstb : std_logic;
 
 
   -- USER ----------------------------------------------------------------------------------
@@ -146,8 +150,8 @@ architecture Behavioral of toplevel is
     Index : DipID;
   end record;
   constant kSiTCP     : regLeaf := (Index => 1);
-  constant kTrigPath  : regLeaf := (Index => 2);
-  constant kAdcMode   : regLeaf := (Index => 3);
+  constant kLocalClk  : regLeaf := (Index => 2);
+  constant kNC2       : regLeaf := (Index => 3);
   constant kNC3       : regLeaf := (Index => 4);
   constant kDummy     : regLeaf := (Index => 0);
 
@@ -202,34 +206,41 @@ architecture Behavioral of toplevel is
   signal wd_to_tsd                              : std_logic_vector(kWidthDataTCP-1 downto 0);
   signal we_to_tsd, empty_to_tsd, re_from_tsd   : std_logic;
 
-  type typeTcpData is array(kNumSfp-1 downto 0) of std_logic_vector(kWidthDataTCP-1 downto 0);
+  type typeTcpData is array(kNumGtx-1 downto 0) of std_logic_vector(kWidthDataTCP-1 downto 0);
   signal daq_data                          : typeTcpData;
-  signal valid_data, empty_data, req_data  : std_logic_vector(kNumSfp-1 downto 0);
+  signal valid_data, empty_data, req_data  : std_logic_vector(kNumGtx-1 downto 0);
 
   -- SiTCP ---------------------------------------------------------------------------------
-  type typeUdpAddr is array(kNumSfp-1 downto 0) of std_logic_vector(kWidthAddrRBCP-1 downto 0);
-  type typeUdpData is array(kNumSfp-1 downto 0) of std_logic_vector(kWidthDataRBCP-1 downto 0);
+  type typeUdpAddr is array(kNumGtx-1 downto 0) of std_logic_vector(kWidthAddrRBCP-1 downto 0);
+  type typeUdpData is array(kNumGtx-1 downto 0) of std_logic_vector(kWidthDataRBCP-1 downto 0);
 
-  signal tcp_isActive, close_req, close_act    : std_logic_vector(kNumSfp-1 downto 0);
+  signal tcp_isActive, close_req, close_act    : std_logic_vector(kNumGtx-1 downto 0);
   -- signal reg_dummy0    : std_logic_vector(7 downto 0);
   -- signal reg_dummy1    : std_logic_vector(7 downto 0);
   -- signal reg_dummy2    : std_logic_vector(7 downto 0);
   -- signal reg_dummy3    : std_logic_vector(7 downto 0);
 
-  signal tcp_tx_clk   : std_logic_vector(kNumSfp-1 downto 0);
-  signal tcp_rx_wr    : std_logic_vector(kNumSfp-1 downto 0);
+  signal tcp_tx_clk   : std_logic_vector(kNumGtx-1 downto 0);
+  signal tcp_rx_wr    : std_logic_vector(kNumGtx-1 downto 0);
   signal tcp_rx_data  : typeTcpData;
-  signal tcp_tx_full  : std_logic_vector(kNumSfp-1 downto 0);
-  signal tcp_tx_wr    : std_logic_vector(kNumSfp-1 downto 0);
+  signal tcp_tx_full  : std_logic_vector(kNumGtx-1 downto 0);
+  signal tcp_tx_wr    : std_logic_vector(kNumGtx-1 downto 0);
   signal tcp_tx_data  : typeTcpData;
 
-  signal rbcp_act     : std_logic_vector(kNumSfp-1 downto 0);
+  signal rbcp_act     : std_logic_vector(kNumGtx-1 downto 0);
   signal rbcp_addr    : typeUdpAddr;
   signal rbcp_wd      : typeUdpData;
-  signal rbcp_we      : std_logic_vector(kNumSfp-1 downto 0); --: Write enable
-  signal rbcp_re      : std_logic_vector(kNumSfp-1 downto 0); --: Read enable
-  signal rbcp_ack     : std_logic_vector(kNumSfp-1 downto 0); -- : Access acknowledge
+  signal rbcp_we      : std_logic_vector(kNumGtx-1 downto 0); --: Write enable
+  signal rbcp_re      : std_logic_vector(kNumGtx-1 downto 0); --: Read enable
+  signal rbcp_ack     : std_logic_vector(kNumGtx-1 downto 0); -- : Access acknowledge
   signal rbcp_rd      : typeUdpData;
+
+  signal rbcp_gmii_addr    : typeUdpAddr;
+  signal rbcp_gmii_wd      : typeUdpData;
+  signal rbcp_gmii_we      : std_logic_vector(kNumGtx-1 downto 0); --: Write enable
+  signal rbcp_gmii_re      : std_logic_vector(kNumGtx-1 downto 0); --: Read enable
+  signal rbcp_gmii_ack     : std_logic_vector(kNumGtx-1 downto 0); -- : Access acknowledge
+  signal rbcp_gmii_rd      : typeUdpData;
 
   component WRAP_SiTCP_GMII_XC7K_32K
     port
@@ -320,22 +331,22 @@ architecture Behavioral of toplevel is
   end component;
 
   signal mmcm_reset_all   : std_logic;
-  signal mmcm_reset       : std_logic_vector(kNumSfp-1 downto 0);
+  signal mmcm_reset       : std_logic_vector(kNumGtx-1 downto 0);
   signal mmcm_locked      : std_logic;
 
   signal gt0_qplloutclk, gt0_qplloutrefclk  : std_logic;
   signal gtrefclk_i, gtrefclk_bufg  : std_logic;
-  signal txout_clk, rxout_clk       : std_logic_vector(kNumSfp-1 downto 0);
+  signal txout_clk, rxout_clk       : std_logic_vector(kNumGtx-1 downto 0);
   signal user_clk, user_clk2, rxuser_clk, rxuser_clk2   : std_logic;
 
-  signal eth_tx_clk       : std_logic_vector(kNumSfp-1 downto 0);
-  signal eth_tx_en        : std_logic_vector(kNumSfp-1 downto 0);
-  signal eth_tx_er        : std_logic_vector(kNumSfp-1 downto 0);
+  signal eth_tx_clk       : std_logic_vector(kNumGtx-1 downto 0);
+  signal eth_tx_en        : std_logic_vector(kNumGtx-1 downto 0);
+  signal eth_tx_er        : std_logic_vector(kNumGtx-1 downto 0);
   signal eth_tx_d         : typeTcpData;
 
-  signal eth_rx_clk       : std_logic_vector(kNumSfp-1 downto 0);
-  signal eth_rx_dv        : std_logic_vector(kNumSfp-1 downto 0);
-  signal eth_rx_er        : std_logic_vector(kNumSfp-1 downto 0);
+  signal eth_rx_clk       : std_logic_vector(kNumGtx-1 downto 0);
+  signal eth_rx_dv        : std_logic_vector(kNumGtx-1 downto 0);
+  signal eth_rx_er        : std_logic_vector(kNumGtx-1 downto 0);
   signal eth_rx_d         : typeTcpData;
 
 
@@ -343,10 +354,13 @@ architecture Behavioral of toplevel is
   signal clk_gbe, clk_sys   : std_logic;
   signal clk_locked         : std_logic;
   signal clk_sys_locked     : std_logic;
-  signal clk_tdc_locked     : std_logic;
-  signal clk_icap, clk_spi  : std_logic;
+  signal clk_spi            : std_logic;
   signal clk_machine        : std_logic;
+  signal clk_machine_div2   : std_logic;
+  signal gclk_mac_div2      : std_logic;
+
   signal clk_tdc            : std_logic;
+  signal clk_slow           : std_logic;
 
   component clk_wiz_sys
     port
@@ -355,8 +369,6 @@ architecture Behavioral of toplevel is
         clk_sys          : out    std_logic;
         clk_indep_gtx    : out    std_logic;
         clk_spi          : out    std_logic;
-        clk_icap_ce      : in     std_logic;
-        clk_icap         : out    std_logic;
         clk_machine      : out    std_logic;
 --        clk_buf          : out    std_logic;
         -- Status and control signals
@@ -367,11 +379,15 @@ architecture Behavioral of toplevel is
         );
   end component;
 
+  signal mmcm_cdcm_locked     : std_logic;
+  signal mmcm_cdcm_reset      : std_logic;
+
   component clk_wiz_tdc
     port
      (-- Clock in ports
       -- Clock out ports
-      clk_tdc          : out    std_logic;
+      clk_tdc           : out    std_logic;
+      clk_slow          : out    std_logic;
       -- Status and control signals
       reset             : in     std_logic;
       locked            : out    std_logic;
@@ -389,15 +405,21 @@ begin
 --  SPID3   <= 'Z';
 
   -- Global ----------------------------------------------------------------------------
-  clk_locked      <= clk_sys_locked and clk_tdc_locked;
+  u_DelayUsrRstb : entity mylib.DelayGen
+    generic map(kNumDelay => 128)
+    port map(clk_sys, USR_RSTB, delayed_usr_rstb);
+
+  c6c_reset       <= (not clk_sys_locked) or (not delayed_usr_rstb);
+  mmcm_cdcm_reset <= (not delayed_usr_rstb);
+
+  clk_locked      <= clk_sys_locked and mmcm_cdcm_locked;
   system_reset    <= (not clk_locked) or (not USR_RSTB);
+
   user_reset      <= system_reset or rst_from_bus or emergency_reset(0);
   bct_reset       <= system_reset or emergency_reset(0);
 
-  c6c_reset       <= '1';--(not clk_sys_locked) or (not delayed_usr_rstb);
-
   -- Input --
-  NIM_OUT(1) <= CI_TRIGB(1) when(dip_sw(kTrigPath.Index) = '0') else CI_TRIGB(33);
+  --NIM_OUT(1) <= CI_TRIGB(1) when(dip_sw(kLocalClk.Index) = '0') else CI_TRIGB(33);
   NIM_OUT(2) <= hold_out;
   -- NIM_OUT(1) <= BIAS_CLB;
   -- NIM_OUT(1) <= reg_srout and reg_readout;
@@ -477,8 +499,8 @@ begin
   u_CITIROC_Inst : entity mylib.CitirocController
     port map(
       rst               => user_reset,
-      clk               => clk_sys,
-      clk_machine       => clk_machine,
+      clk               => clk_slow,
+      clk_machine       => gclk_mac_div2,
       -- Local bus --
       addrLocalBus      => addr_LocalBus,
       dataLocalBusIn    => data_LocalBusIn,
@@ -499,7 +521,7 @@ begin
   u_BIAS_Inst : entity mylib.MAX1932Controller
     port map(
       rst	          => user_reset,
-      clk	          => clk_sys,
+      clk	          => clk_slow,
 
       -- Module output --
       CSB_SPI           => BIAS_CSB,
@@ -520,7 +542,7 @@ begin
     port map(
       -- System --
       reset     => user_reset,
-      clk       => clk_sys,
+      clk       => clk_slow,
       clkFast   => clk_tdc,
 
       holdIn    => NIM_IN(2),
@@ -540,13 +562,13 @@ begin
   ADC_CLK   <= adc_clock_out;
   u_AD9220 : entity mylib.AD9220
     generic map(
-      freqSysClk  => 150_000_000,
+      freqSysClk  => 125_000_000,
       freqBusClk  => 5_000_000,
-      enDebug     => true
+      enDebug     => false
       )
     port map(
       -- System --
-      clk       => clk_sys,
+      clk       => clk_slow,
       reset     => user_reset,
       busyOut   => busy_adc,
       startIn   => start_adc,
@@ -570,18 +592,43 @@ begin
       );
 
 
+  -- IOM -------------------------------------------------------------------------------
+  u_IOM_Inst : entity mylib.IOManager
+    generic map(
+      kNumInput           => kNumInput
+    )
+    port map(
+      rst	                => user_reset,
+      clk	                => clk_slow,
+
+      -- Module Input --
+      discriIn            => CI_TRIGB,
+
+      -- Module output --
+      discriMuxOut        => NIM_OUT(1),
+
+      -- Local bus --
+      addrLocalBus        => addr_LocalBus,
+      dataLocalBusIn      => data_LocalBusIn,
+      dataLocalBusOut     => data_LocalBusOut(kIOM.ID),
+      reLocalBus          => re_LocalBus(kIOM.ID),
+      weLocalBus          => we_LocalBus(kIOM.ID),
+      readyLocalBus       => ready_LocalBus(kIOM.ID)
+      );
+
+
   -- C6C -------------------------------------------------------------------------------
   u_C6C_Inst : entity mylib.CDCE62002Controller
     generic map(
-      kSysClkFreq         => 150_000_000
+      kSysClkFreq         => 125_000_000
     )
     port map(
       rst	                => system_reset,
-      clk	                => clk_sys,
-      refClkIn            => clk_spi,
+      clk	                => clk_slow,
+      refClkIn            => clk_sys,
 
       chipReset           => c6c_reset,
-      clkIndep            => clk_sys,
+      clkIndep            => clk_gbe,
       chipLock            => CDCE_LOCK,
 
       -- Module output --
@@ -606,7 +653,7 @@ begin
   u_MIG : entity mylib.MigDD3SDRAM
     port map(
     rst	                => user_reset,
-    clk	                => clk_sys,
+    clk	                => clk_slow,
     refClkIn            => clk_gbe,
     xadcTempIn          => reg_temp,
 
@@ -651,7 +698,7 @@ begin
   u_MIGtest : entity mylib.MigTestModule
     port map(
       rst         => user_reset,
-      clk         => clk_sys,
+      clk         => clk_slow,
       dOut        => dout_test_data,
       dValid      => dvalid_test_data,
       dIn         => din_test_data,
@@ -671,7 +718,7 @@ begin
 
   -- re_from_tsd   <= req_data(0);
 
-  gen_sd: for i in 0 to kNumSfp-1 generate
+  gen_sd: for i in 0 to kNumGtx-1 generate
     u_TSD_Inst : entity mylib.TCP_sender
       port map(
         RST                     => user_reset,
@@ -707,8 +754,8 @@ begin
   u_SDS_Inst : entity mylib.SelfDiagnosisSystem
     port map(
       rst               => user_reset,
-      clk               => clk_sys,
-      clkIcap           => clk_icap,
+      clk               => clk_slow,
+      clkIcap           => clk_spi,
 
       -- Module input  --
       VP                => VP,
@@ -733,7 +780,7 @@ begin
   u_FMP_Inst : entity mylib.FlashMemoryProgrammer
     port map(
       rst	              => user_reset,
-      clk	              => clk_sys,
+      clk	              => clk_slow,
       clkSpi            => clk_spi,
 
       -- Module output --
@@ -758,7 +805,7 @@ begin
       rstSys                    => bct_reset,
       rstFromBus                => rst_from_bus,
       reConfig                  => PROGB_ON,
-      clk                       => clk_sys,
+      clk                       => clk_slow,
       -- Local Bus --
       addrLocalBus              => addr_LocalBus,
       dataFromUserModules       => data_LocalBusOut,
@@ -779,7 +826,7 @@ begin
   -- SiTCP Inst ------------------------------------------------------------------------
   sitcp_reset     <= system_reset OR (NOT USR_RSTB);
 
-  gen_SiTCP : for i in 0 to kNumSfp-1 generate
+  gen_SiTCP : for i in 0 to kNumGtx-1 generate
 
     eth_tx_clk(i)      <= eth_rx_clk(0);
 
@@ -842,12 +889,36 @@ begin
         TCP_TX_DATA       => tcp_tx_data(i), -- : Write data[7:0]
         -- RBCP
         RBCP_ACT          => open, --: RBCP active
-        RBCP_ADDR         => rbcp_addr(i), --: Address[31:0]
-        RBCP_WD           => rbcp_wd(i),   --: Data[7:0]
-        RBCP_WE           => rbcp_we(i),   --: Write enable
-        RBCP_RE           => rbcp_re(i),   --: Read enable
-        RBCP_ACK          => rbcp_ack(i),  --: Access acknowledge
-        RBCP_RD           => rbcp_rd(i)    --: Read data[7:0]
+        RBCP_ADDR         => rbcp_gmii_addr(i), --: Address[31:0]
+        RBCP_WD           => rbcp_gmii_wd(i),   --: Data[7:0]
+        RBCP_WE           => rbcp_gmii_we(i),   --: Write enable
+        RBCP_RE           => rbcp_gmii_re(i),   --: Read enable
+        RBCP_ACK          => rbcp_gmii_ack(i),  --: Access acknowledge
+        RBCP_RD           => rbcp_gmii_rd(i)    --: Read data[7:0]
+        );
+
+    --aaa
+    u_RbcpCdc : entity mylib.RbcpCdc
+      port map(
+        -- Mikumari clock domain --
+        rstSys      => system_reset,
+        clkSys      => clk_slow,
+        rbcpAddr    => rbcp_addr(i),
+        rbcpWd      => rbcp_wd(i),
+        rbcpWe      => rbcp_we(i),
+        rbcpRe      => rbcp_re(i),
+        rbcpAck     => rbcp_ack(i),
+        rbcpRd      => rbcp_rd(i),
+
+        -- GMII clock domain --
+        rstXgmii    => system_reset,
+        clkXgmii    => clk_sys,
+        rbcpXgAddr  => rbcp_gmii_addr(i),
+        rbcpXgWd    => rbcp_gmii_wd(i),
+        rbcpXgWe    => rbcp_gmii_we(i),
+        rbcpXgRe    => rbcp_gmii_re(i),
+        rbcpXgAck   => rbcp_gmii_ack(i),
+        rbcpXgRd    => rbcp_gmii_rd(i)
         );
 
     u_gTCP_inst : entity mylib.global_sitcp_manager
@@ -913,7 +984,7 @@ begin
       refclkQPLL    => gt0_qplloutrefclk
       );
 
-  gen_pcspma : for i in 0 to kNumSfp-1 generate
+  gen_pcspma : for i in 0 to kNumGtx-1 generate
     u_pcspma_Inst : entity mylib.GbEPcsPma
       port map(
 
@@ -984,8 +1055,6 @@ begin
       clk_sys         => clk_sys,
       clk_indep_gtx   => clk_gbe,
       clk_spi         => clk_spi,
-      clk_icap_ce     => clk_sys_locked,
-      clk_icap        => clk_icap,
       clk_machine     => clk_machine,
       -- Status and control signals
       reset           => '0',
@@ -995,14 +1064,29 @@ begin
       clk_in1_n       => BASE_CLKN
       );
 
+
+  u_div2 : process(clk_machine)
+  begin
+    if(clk_machine'event and clk_machine = '1') then
+      clk_machine_div2  <= not clk_machine_div2;
+    end if;
+  end process;
+
+  u_bufg_div2 : BUFG
+  port map (
+     O => gclk_mac_div2, -- 1-bit output: Clock output
+     I => clk_machine_div2  -- 1-bit input: Clock input
+  );
+
   u_ClkTdc_Inst :  clk_wiz_tdc
     port map
      (-- Clock in ports
       -- Clock out ports
       clk_tdc           => clk_tdc,
+      clk_slow          => clk_slow,
       -- Status and control signals
-      reset             => '0',
-      locked            => clk_tdc_locked,
+      reset             => mmcm_cdcm_reset,
+      locked            => mmcm_cdcm_locked,
       clk_in1           => clk_sys
      );
 

@@ -1,6 +1,7 @@
 library ieee, mylib;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
+use IEEE.numeric_std.all;
+
 use mylib.defBCT.all;
 
 package defMAX is

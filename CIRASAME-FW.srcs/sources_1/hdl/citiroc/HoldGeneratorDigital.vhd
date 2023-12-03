@@ -1,6 +1,6 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
-USE ieee.std_logic_unsigned.all;
+use IEEE.numeric_std.all;
 
 library mylib;
 use mylib.defHGD.all;
