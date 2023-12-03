@@ -39,6 +39,12 @@ entity toplevel is
     DIN                 : in std_logic;
     FCSB                : out std_logic;
 
+-- MIKUMARI connector ---------------------------------------------------
+    MIKUMARI_RXP        : in std_logic;
+    MIKUMARI_RXN        : in std_logic;
+    MIKUMARI_TXP        : out std_logic;
+    MIKUMARI_TXN        : out std_logic;
+
 -- EEPROM ---------------------------------------------------------------
     EEP_CS              : out std_logic;
     EEP_SK              : out std_logic;
@@ -140,6 +146,56 @@ architecture Behavioral of toplevel is
 
   signal delayed_usr_rstb : std_logic;
 
+  -- MIKUMARI -----------------------------------------------------------------------------
+  -- CDCM --
+  signal power_on_init        : std_logic;
+
+  signal reset_shiftreg       : std_logic_vector(7 downto 0);
+  signal sync_reset           : std_logic;
+
+  signal cbt_lane_up          : std_logic;
+  signal pattern_error        : std_logic;
+  signal watchdog_error       : std_logic;
+
+  signal mod_clk              : std_logic;
+  signal mod_gclk             : std_logic;
+
+  signal cbt_tap_value        : std_logic_vector(4 downto 0);
+
+  attribute mark_debug of cbt_lane_up   : signal is "true";
+  attribute mark_debug of pattern_error   : signal is "true";
+  attribute mark_debug of watchdog_error   : signal is "true";
+
+  -- Mikumari --
+  signal miku_tx_ack        : std_logic;
+  signal miku_data_tx       : std_logic_vector(7 downto 0);
+  signal miku_valid_tx      : std_logic;
+  signal miku_last_tx       : std_logic;
+  signal busy_pulse_tx      : std_logic;
+
+  signal mikumari_link_up   : std_logic;
+  signal miku_data_rx       : std_logic_vector(7 downto 0);
+  signal miku_valid_rx      : std_logic;
+  signal miku_last_rx       : std_logic;
+  signal checksum_err       : std_logic;
+  signal frame_broken       : std_logic;
+  signal recv_terminated    : std_logic;
+  signal pulse_out          : std_logic;
+  signal pulse_type_out     : std_logic_vector(2 downto 0);
+
+  attribute mark_debug of miku_tx_ack  : signal is "true";
+  attribute mark_debug of miku_data_tx  : signal is "true";
+  attribute mark_debug of miku_valid_tx  : signal is "true";
+  attribute mark_debug of miku_last_tx  : signal is "true";
+  attribute mark_debug of mikumari_link_up  : signal is "true";
+  attribute mark_debug of miku_data_rx  : signal is "true";
+  attribute mark_debug of miku_valid_rx  : signal is "true";
+  attribute mark_debug of miku_last_rx  : signal is "true";
+  attribute mark_debug of checksum_err  : signal is "true";
+  attribute mark_debug of frame_broken  : signal is "true";
+  attribute mark_debug of recv_terminated  : signal is "true";
+  attribute mark_debug of pulse_out  : signal is "true";
+  attribute mark_debug of pulse_type_out  : signal is "true";
 
   -- USER ----------------------------------------------------------------------------------
 
@@ -151,7 +207,7 @@ architecture Behavioral of toplevel is
   end record;
   constant kSiTCP     : regLeaf := (Index => 1);
   constant kLocalClk  : regLeaf := (Index => 2);
-  constant kNC2       : regLeaf := (Index => 3);
+  constant kIdle      : regLeaf := (Index => 3);
   constant kNC3       : regLeaf := (Index => 4);
   constant kDummy     : regLeaf := (Index => 0);
 
@@ -391,7 +447,9 @@ architecture Behavioral of toplevel is
       -- Status and control signals
       reset             : in     std_logic;
       locked            : out    std_logic;
-      clk_in1           : in     std_logic
+      clk_in1           : in     std_logic;
+      clk_in2           : in     std_logic;
+      clk_in_sel        : in     std_logic
      );
     end component;
 
@@ -487,6 +545,140 @@ begin
   -- LED(3 downto 1)     <= out_led(3 downto 1);
   -- LED(4)     <= CDCE_LOCK;
 
+
+  -- MIKUMARI --------------------------------------------------------------------------
+  u_KeepInit : process(system_reset, clk_slow)
+    variable counter   : integer:= 0;
+  begin
+    if(system_reset = '1') then
+      power_on_init   <= '1';
+      counter         := 16#0FFFFFFF#;
+    elsif(clk_slow'event and clk_slow = '1') then
+      if(counter = 0) then
+        power_on_init   <= '0';
+      else
+        counter   := counter -1;
+      end if;
+    end if;
+  end process;
+
+  u_Miku_Inst : entity mylib.MikumariBlock
+    generic map(
+      -- CBT generic -------------------------------------------------------------
+      -- CDCM-Mod-Pattern --
+      kCdcmModWidth    => 8,
+      -- CDCM-TX --
+      kIoStandardTx    => "LVDS",
+      kTxPolarity      => TRUE,
+      -- CDCM-RX --
+      genIDELAYCTRL    => TRUE,
+      kDiffTerm        => TRUE,
+      kIoStandardRx    => "LVDS",
+      kRxPolarity      => FALSE,
+      kIoDelayGroup    => "idelay_1",
+      kFixIdelayTap    => FALSE,
+      kFreqFastClk     => 500.0,
+      kFreqRefClk      => 200.0,
+      -- Encoder/Decoder
+      kNumEncodeBits   => 1,
+      -- Master/Slave
+      kCbtMode         => "Slave",
+      -- DEBUG --
+      enDebugCBT       => FALSE,
+
+      -- MIKUMARI generic --------------------------------------------------------
+      -- Scrambler --
+      enScrambler      => TRUE,
+      -- DEBUG --
+      enDebugMikumari  => FALSE
+    )
+    port map(
+      -- System ports -----------------------------------------------------------
+      rst           => system_reset,
+      clkSer        => clk_tdc,
+      clkPar        => clk_slow,
+      clkIndep      => clk_gbe,
+      clkIdctrl     => clk_gbe,
+      initIn        => power_on_init,
+      tapValueIn    => "00000",
+      tapValueOut   => open,
+
+      TXP           => MIKUMARI_TXP,
+      TXN           => MIKUMARI_TXN,
+      RXP           => MIKUMARI_RXP,
+      RXN           => MIKUMARI_RXN,
+      modClk        => mod_clk,
+
+      -- CBT ports ------------------------------------------------------------
+      laneUp        => cbt_lane_up,
+      idelayErr     => open,
+      bitslipErr    => open,
+      pattErr       => pattern_error,
+      watchDogErr   => watchdog_error,
+
+      -- Mikumari ports -------------------------------------------------------
+      linkUp        => mikumari_link_up,
+
+      -- TX port --
+      -- Data I/F --
+      dataInTx      => miku_data_tx,
+      validInTx     => miku_valid_tx,
+      frameLastInTx => miku_last_tx,
+      txAck         => miku_tx_ack,
+
+      pulseIn       => '0',
+      pulseTypeTx   => "010",
+      busyPulseTx   => open,
+
+      -- RX port --
+      -- Data I/F --
+      dataOutRx   => miku_data_rx,
+      validOutRx  => miku_valid_rx,
+      frameLastRx => miku_last_rx,
+      checksumErr => checksum_err,
+      frameBroken => frame_broken,
+      recvTermnd  => recv_terminated,
+
+      pulseOut    => pulse_out,
+      pulseTypeRx => pulse_type_out
+
+    );
+
+    u_miku_tx : process(clk_slow)
+      variable count : integer range 0 to 7:= 0;
+    begin
+      if(clk_slow'event and clk_slow = '1') then
+        if(dip_sw(kIdle.Index) = '0') then
+          miku_valid_tx   <= '1';
+          if(miku_tx_ack  = '1') then
+            miku_data_tx  <= std_logic_vector(unsigned(miku_data_tx) +1);
+            count         := count +1;
+          end if;
+
+          if(count = 7) then
+            miku_last_tx  <= '1';
+          else
+            miku_last_tx  <= '0';
+          end if;
+        else
+          miku_valid_tx   <= '0';
+          miku_data_tx    <= (others => '0');
+          miku_last_tx    <= '0';
+          count           := 0;
+        end if;
+      end if;
+    end process;
+
+  -- Reset sequence --
+  sync_reset    <= reset_shiftreg(7);
+  u_sync_reset : process(system_reset, clk_slow)
+  begin
+    if(system_reset = '1') then
+      reset_shiftreg  <= (others => '1');
+    elsif(clk_slow'event and clk_slow = '1') then
+      reset_shiftreg  <= reset_shiftreg(6 downto 0) & '0';
+    end if;
+  end process;
 
   -- CITIROC ---------------------------------------------------------------------------
   CI_CLK_READ   <= read_clk_sr or read_clk_adc;
@@ -1078,6 +1270,12 @@ begin
      I => clk_machine_div2  -- 1-bit input: Clock input
   );
 
+  BUFG_modclk : BUFG
+    port map (
+       O => mod_gclk, -- 1-bit output: Clock output
+       I => mod_clk  -- 1-bit input: Clock input
+    );
+
   u_ClkTdc_Inst :  clk_wiz_tdc
     port map
      (-- Clock in ports
@@ -1087,7 +1285,9 @@ begin
       -- Status and control signals
       reset             => mmcm_cdcm_reset,
       locked            => mmcm_cdcm_locked,
-      clk_in1           => clk_sys
+      clk_in1           => clk_sys,
+      clk_in2           => mod_gclk,
+      clk_in_sel        => dip_sw(kLocalClk.Index)
      );
 
 

@@ -1,3 +1,6 @@
 [submodule "CIRASAME-FW.srcs/sources_1/SiTCP_Netlist_for_Kintex7"]
 	path = CIRASAME-FW.srcs/sources_1/sitcp
 	url = https://github.com/BeeBeansTechnologies/SiTCP_Netlist_for_Kintex7.git
+[submodule "CIRASAME-FW.srcs/sources_1/mikumari"]
+	path = CIRASAME-FW.srcs/sources_1/mikumari
+	url = https://github.com/RyotaroHonda/mikumari.git

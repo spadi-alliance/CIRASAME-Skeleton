@@ -1,8 +1,11 @@
 # Clock definition
 #create_clock -name clk_in -period 8 -waveform {0 4} [get_ports PHY_RX_CLK]
+create_clock -period 8.000 -name clk_gmod -waveform {0.000 4.000} [get_pins BUFG_modclk/O]
 
 #create_clock -period 7.692 -name clk_b2tt -waveform {0.000 3.846} [get_ports RJ45_TRG_P]
 #set_input_jitter clk_b2tt 0.100
+
+set_case_analysis 0 [get_pins u_ClkTdc_Inst/inst/mmcm_adv_inst/CLKINSEL]
 
 # SiTCP
 set_false_path -through [get_nets {gen_SiTCP[*].u_SiTCP_Inst/SiTCP/SiTCP_INT/SiTCP_INT_REG/regX11Data*}]

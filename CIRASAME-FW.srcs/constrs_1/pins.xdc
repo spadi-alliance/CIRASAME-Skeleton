@@ -27,6 +27,12 @@ set_property PACKAGE_PIN B24 [get_ports MOSI]
 set_property PACKAGE_PIN A25 [get_ports DIN]
 set_property PACKAGE_PIN C23 [get_ports FCSB]
 
+# MIKUMARI -------------------------------------------------------------
+set_property PACKAGE_PIN AF14 [get_ports MIKUMARI_TXP]
+set_property PACKAGE_PIN AF15 [get_ports MIKUMARI_TXN]
+set_property PACKAGE_PIN AB16 [get_ports MIKUMARI_RXP]
+set_property PACKAGE_PIN AC16 [get_ports MIKUMARI_RXN]
+
 # EEPROM ---------------------------------------------------------------
 set_property PACKAGE_PIN AB22 [get_ports EEP_CS]
 set_property PACKAGE_PIN AC22 [get_ports EEP_SK]
@@ -264,6 +270,11 @@ set_property IOSTANDARD LVCMOS33 [get_ports DIN]
 set_property IOB TRUE [get_ports DIN]
 set_property IOSTANDARD LVCMOS33 [get_ports FCSB]
 set_property IOB TRUE [get_ports FCSB]
+
+# MIKUMARI -------------------------------------------------------------
+set_property IOSTANDARD LVDS [get_ports MIKUMARI_TXP]
+set_property IOSTANDARD LVDS [get_ports MIKUMARI_RXP]
+set_property DIFF_TERM TRUE [get_ports MIKUMARI_RXP]
 
 # EEPROM ---------------------------------------------------------------
 set_property IOSTANDARD LVCMOS33 [get_ports EEP_CS]
