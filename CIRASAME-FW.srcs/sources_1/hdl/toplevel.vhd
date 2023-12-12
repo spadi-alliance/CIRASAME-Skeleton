@@ -248,6 +248,8 @@ architecture Behavioral of toplevel is
 
   -- SCR ----------------------------------------------------------------------------------
   constant kMsbScr      : integer:= kNumSysInput+kNumInput-1;
+  signal trigb_ibuf_out : std_logic_vector(kNumInput-1 downto 0);
+  signal hit_out        : std_logic_vector(kNumInput-1 downto 0);
   signal scr_en_in      : std_logic_vector(kMsbScr downto 0);
 
   -- C6C ----------------------------------------------------------------------------------
@@ -811,7 +813,7 @@ begin
       clk	                => clk_slow,
 
       -- Module Input --
-      discriIn            => CI_TRIGB,
+      discriIn            => trigb_ibuf_out,
 
       -- Module output --
       discriMuxOut        => NIM_OUT(1),
@@ -836,7 +838,26 @@ begin
   scr_en_in(kMsbScr - kIndexOutThrotTime)   <= '1';
   scr_en_in(kMsbScr - kIndexHbfThrotTime)   <= '0';
 
-  scr_en_in(kNumInput-1 downto 0)           <= swap_vect(CI_TRIGB);
+
+  u_HitDetect : entity mylib.HitDetector
+    generic map(
+      kIoStandard         => "LVCMOS18",
+      kNumHitInput        => kNumInput
+    )
+    port map(
+      rst	                => system_reset,
+      clkPar	            => clk_slow,
+      clkSer	            => clk_tdc,
+
+      -- Module Input --
+      dataInFromPin       => CI_TRIGB,
+
+      -- Module Output --
+      ibufOut             => trigb_ibuf_out,
+      hitOut              => hit_out
+      );
+
+  scr_en_in(kNumInput-1 downto 0)           <= swap_vect(hit_out);
 
   u_SCR_Inst : entity mylib.FreeRunScaler
     generic map(

@@ -250,7 +250,7 @@ set_property PACKAGE_PIN V26 [get_ports ADC_CLK]
 #  ---------------------------------------------------------------------
 
 # System ---------------------------------------------------------------
-set_property IOSTANDARD LVCMOS33 [get_ports PROGB_ON]
+set_property IOSTANDARD LVCMOS18 [get_ports PROGB_ON]
 set_property IOSTANDARD LVDS [get_ports BASE_CLKP]
 set_property DIFF_TERM TRUE [get_ports BASE_CLKP]
 set_property DIFF_TERM TRUE [get_ports BASE_CLKN]
@@ -264,11 +264,11 @@ set_property PULLUP true [get_ports {DIP[1]}]
 # GTX ------------------------------------------------------------------
 
 # SPI flash ------------------------------------------------------------
-set_property IOSTANDARD LVCMOS33 [get_ports MOSI]
+set_property IOSTANDARD LVCMOS18 [get_ports MOSI]
 set_property IOB TRUE [get_ports MOSI]
-set_property IOSTANDARD LVCMOS33 [get_ports DIN]
+set_property IOSTANDARD LVCMOS18 [get_ports DIN]
 set_property IOB TRUE [get_ports DIN]
-set_property IOSTANDARD LVCMOS33 [get_ports FCSB]
+set_property IOSTANDARD LVCMOS18 [get_ports FCSB]
 set_property IOB TRUE [get_ports FCSB]
 
 # MIKUMARI -------------------------------------------------------------
@@ -334,7 +334,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports CI_RAZCHN]
 set_property IOSTANDARD LVCMOS33 [get_ports {PMUX_A[*]}]
 
 # CITIROC trigger ------------------------------------------------------
-set_property IOSTANDARD LVCMOS33 [get_ports {CI_TRIGB[*]}]
+set_property IOSTANDARD LVCMOS18 [get_ports {CI_TRIGB[*]}]
 
 # DDR3 SDRAM -----------------------------------------------------------
 # AD9220 ---------------------------------------------------------------
