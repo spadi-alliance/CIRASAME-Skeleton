@@ -9,6 +9,7 @@ use UNISIM.VComponents.all;
 library mylib;
 use mylib.defToplevel.all;
 use mylib.defBusAddressMap.all;
+use mylib.defFreeRunScaler.all;
 use mylib.defBCT.all;
 use mylib.defRBCP.all;
 use mylib.defSiTCP.all;
@@ -146,6 +147,16 @@ architecture Behavioral of toplevel is
 
   signal delayed_usr_rstb : std_logic;
 
+  function swap_vect(vect_in : in std_logic_vector) return std_logic_vector is
+    variable vect_out   : std_logic_vector(vect_in'range);
+  begin
+    for i in vect_in'range loop
+      vect_out(i)   := vect_in(vect_in'high - i + vect_in'low);
+    end loop;
+
+    return vect_out;
+  end function;
+
   -- MIKUMARI -----------------------------------------------------------------------------
   -- CDCM --
   signal power_on_init        : std_logic;
@@ -211,21 +222,6 @@ architecture Behavioral of toplevel is
   constant kNC3       : regLeaf := (Index => 4);
   constant kDummy     : regLeaf := (Index => 0);
 
-  -- C6C ----------------------------------------------------------------------------------
-  signal c6c_reset    : std_logic;
-
-  -- MIG ----------------------------------------------------------------------------------
-  signal dout_test_data   : std_logic_vector(kWidthDaqData-1 downto 0);
-  signal din_test_data    : std_logic_vector(kWidthDaqData-1 downto 0);
-  signal dvalid_test_data, rvalid_test_data   : std_logic;
-  signal ren_read_buf, empty_read_buf   : std_logic;
-
-  -- SDS ---------------------------------------------------------------------
-  signal shutdown_over_temp     : std_logic;
-  signal reg_temp               : std_logic_vector(11 downto 0);
-
-  -- FMP ---------------------------------------------------------------------
-
   -- ASIC ----------------------------------------------------------------------------------
   signal reg_direct_control1     : std_logic_vector(7 downto 0);
   signal reg_direct_control2     : std_logic_vector(7 downto 0);
@@ -249,6 +245,27 @@ architecture Behavioral of toplevel is
   signal read_in_adc  : std_logic;
 
   signal adc_clock_out  : std_logic;
+
+  -- SCR ----------------------------------------------------------------------------------
+  constant kMsbScr      : integer:= kNumSysInput+kNumInput-1;
+  signal scr_en_in      : std_logic_vector(kMsbScr downto 0);
+
+  -- C6C ----------------------------------------------------------------------------------
+  signal c6c_reset    : std_logic;
+
+  -- MIG ----------------------------------------------------------------------------------
+  signal dout_test_data   : std_logic_vector(kWidthDaqData-1 downto 0);
+  signal din_test_data    : std_logic_vector(kWidthDaqData-1 downto 0);
+  signal dvalid_test_data, rvalid_test_data   : std_logic;
+  signal ren_read_buf, empty_read_buf   : std_logic;
+
+  -- SDS ---------------------------------------------------------------------
+  signal shutdown_over_temp     : std_logic;
+  signal reg_temp               : std_logic_vector(11 downto 0);
+
+  -- FMP ---------------------------------------------------------------------
+
+
 
   -- BCT -----------------------------------------------------------------------------------
   signal addr_LocalBus          : LocalAddressType;
@@ -808,6 +825,40 @@ begin
       readyLocalBus       => ready_LocalBus(kIOM.ID)
       );
 
+  --
+  -- SCR -------------------------------------------------------------------------------
+  scr_en_in(kMsbScr - kIndexClk)            <= '1';
+  scr_en_in(kMsbScr - kIndexRealTime)       <= '0';
+  scr_en_in(kMsbScr - kIndexDaqRunTime)     <= '1';
+  scr_en_in(kMsbScr - kIndexTotalThrotTime) <= '0';
+  scr_en_in(kMsbScr - kIndexInThrot1Time)   <= '0';
+  scr_en_in(kMsbScr - kIndexInThrot2Time)   <= '0';
+  scr_en_in(kMsbScr - kIndexOutThrotTime)   <= '1';
+  scr_en_in(kMsbScr - kIndexHbfThrotTime)   <= '0';
+
+  scr_en_in(kNumInput-1 downto 0)           <= swap_vect(CI_TRIGB);
+
+  u_SCR_Inst : entity mylib.FreeRunScaler
+    generic map(
+      kNumHitInput        => kNumInput,
+      enDebug             => false
+    )
+    port map(
+      rst	                => user_reset,
+      cntRst              => system_reset,
+      clk	                => clk_slow,
+
+      -- Module Input --
+      scrEnIn             => scr_en_in,
+
+      -- Local bus --
+      addrLocalBus        => addr_LocalBus,
+      dataLocalBusIn      => data_LocalBusIn,
+      dataLocalBusOut     => data_LocalBusOut(kSCR.ID),
+      reLocalBus          => re_LocalBus(kSCR.ID),
+      weLocalBus          => we_LocalBus(kSCR.ID),
+      readyLocalBus       => ready_LocalBus(kSCR.ID)
+      );
 
   -- C6C -------------------------------------------------------------------------------
   u_C6C_Inst : entity mylib.CDCE62002Controller

@@ -3,8 +3,8 @@ use ieee.std_logic_1164.all;
 
 package defBusAddressMap is
 
-  constant kCurrentVersion      : std_logic_vector(31 downto 0):= x"413E0100";
-  constant kNumModules          : natural:= 9;
+  constant kCurrentVersion      : std_logic_vector(31 downto 0):= x"413E0101";
+  constant kNumModules          : natural:= 10;
 
   constant kWidthModuleID       : positive:=4;
 
@@ -20,12 +20,12 @@ package defBusAddressMap is
   constant kHGD   : Leaf := (ID => 2);
   constant kIOM   : Leaf := (ID => 3);
 
-
-  constant kBIAS  : Leaf := (ID => 4);
-  constant kMIG   : Leaf := (ID => 5);
-  constant kC6C   : Leaf := (ID => 6);
-  constant kSDS   : Leaf := (ID => 7);
-  constant kFMP   : Leaf := (ID => 8);
+  constant kSCR   : Leaf := (ID => 4);
+  constant kBIAS  : Leaf := (ID => 5);
+  constant kMIG   : Leaf := (ID => 6);
+  constant kC6C   : Leaf := (ID => 7);
+  constant kSDS   : Leaf := (ID => 8);
+  constant kFMP   : Leaf := (ID => 9);
   constant kDummy : Leaf := (ID => -1);
 
   function GetID(mid_ext_bus: std_logic_vector(kWidthModuleID-1 downto 0))  return ModuleID;
@@ -48,6 +48,7 @@ package body defBusAddressMap is
       when "0011"   => return kASIC.ID;
       when "0100"   => return kIOM.ID;
 
+      when "1000"   => return kSCR.ID;
       when "1001"   => return kBIAS.ID;
       when "1010"   => return kMIG.ID;
       when "1011"   => return kC6C.ID;

@@ -15,7 +15,7 @@ entity IOManager is
     clk	                : in std_logic;
 
     -- Module Input --
-    discriIn            : in std_logic_vector(kNumInput downto 1);
+    discriIn            : in std_logic_vector(kNumInput-1 downto 0);
 
     -- Module output --
     discriMuxOut        : out std_logic;
