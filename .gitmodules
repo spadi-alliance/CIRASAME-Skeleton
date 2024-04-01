@@ -4,3 +4,15 @@
 [submodule "CIRASAME-FW.srcs/sources_1/mikumari"]
 	path = CIRASAME-FW.srcs/sources_1/mikumari
 	url = https://github.com/RyotaroHonda/mikumari.git
+[submodule "hdl/bbt-sitcp-core"]
+	path = hdl/bbt-sitcp-core
+	url = https://github.com/BeeBeansTechnologies/SiTCP_Netlist_for_Kintex7.git
+[submodule "hdl/cirasame-impl"]
+	path = hdl/cirasame-impl
+	url = https://github.com/AMANEQ-official/cirasame-impl-src.git
+[submodule "hdl/common"]
+	path = hdl/common
+	url = https://github.com/AMANEQ-official/common-src.git
+[submodule "hdl/utility"]
+	path = hdl/utility
+	url = https://github.com/AMANEQ-official/utility-src.git
